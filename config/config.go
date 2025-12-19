@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strconv"
 
 	"gopkg.in/yaml.v2"
 )
@@ -17,6 +18,8 @@ var (
 	StorageDir    string
 
 	SendWebhook     bool
+	WaitForWebhook  bool
+	WebhookTimeout  int
 	WebhookURL      string
 	WebhookTemplate string
 	WebhookHeaders  map[string]string
@@ -37,6 +40,8 @@ type Config struct {
 	BlockMode       string            `yaml:"BlockMode"`
 	BypassIPS       []string          `yaml:"BypassIPS"`
 	SendWebhook     bool              `yaml:"SendWebhook"`
+	WaitForWebhook  bool              `yaml:"WaitForWebhook"`
+	WebhookTimeout  int               `yaml:"WebhookTimeout"`
 	WebhookURL      string            `yaml:"WebhookURL"`
 	WebhookTemplate string            `yaml:"WebhookTemplate"`
 	StorageDir      string            `yaml:"StorageDir"`
@@ -59,6 +64,11 @@ func LoadConfig(configPath string) error {
 	BlockDuration = cfg.BlockDuration
 	TorrentTag = cfg.TorrentTag
 	SendWebhook = cfg.SendWebhook
+	WaitForWebhook = cfg.WaitForWebhook
+	WebhookTimeout = cfg.WebhookTimeout
+	if WebhookTimeout == 0 {
+		WebhookTimeout = 5
+	}
 	WebhookURL = cfg.WebhookURL
 	WebhookHeaders = cfg.WebhookHeaders
 
@@ -101,5 +111,38 @@ func LoadConfig(configPath string) error {
 		StorageDir = "/opt/tblocker"
 	}
 
+	applyEnvOverrides()
+
 	return err
+}
+
+func applyEnvOverrides() {
+	if v := os.Getenv("XUI_TORRENT_WEBHOOK_ENABLE"); v == "true" {
+		SendWebhook = true
+	}
+	if v := os.Getenv("XUI_TORRENT_WAIT_WEBHOOK"); v == "true" {
+		WaitForWebhook = true
+	}
+	if v := os.Getenv("XUI_TORRENT_WEBHOOK_URL"); v != "" {
+		WebhookURL = v
+	}
+	if v := os.Getenv("XUI_TORRENT_WEBHOOK_TIMEOUT"); v != "" {
+		if timeout, err := strconv.Atoi(v); err == nil {
+			WebhookTimeout = timeout
+		}
+	}
+	if v := os.Getenv("XUI_TORRENT_BAN_DURATION"); v != "" {
+		if duration, err := strconv.Atoi(v); err == nil {
+			BlockDuration = duration
+		}
+	}
+	if v := os.Getenv("XUI_TORRENT_LOG_FILE"); v != "" {
+		LogFile = v
+	}
+	if v := os.Getenv("XUI_TORRENT_BLOCK_MODE"); v != "" {
+		BlockMode = v
+	}
+	if v := os.Getenv("XUI_TORRENT_STORAGE_DIR"); v != "" {
+		StorageDir = v
+	}
 }

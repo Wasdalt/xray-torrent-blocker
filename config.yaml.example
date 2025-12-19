@@ -1,68 +1,97 @@
-# Обязательный. Путь к файлу логов, который будет мониториться.
-# Required. Path to the log file to be monitored.
-LogFile: "/var/log/remnanode/access.log"
+# ============================================================================
+# xray-torrent-blocker Configuration
+# Конфигурация xray-torrent-blocker
+# ============================================================================
 
-# Обязательный. Продолжительность блокировки IP-адреса в минутах.
-# Required. Duration of IP address blocking in minutes.
+# Path to Xray log file for monitoring
+# Путь к файлу логов Xray для мониторинга
+LogFile: "/app/xray-logs/access.log"
+
+# Block duration in minutes
+# Длительность блокировки IP в минутах
 BlockDuration: 10
 
-# Обязательный. Тег, по которому приложение будет определять, что нужно обрабатывать строку лога.
-# Required. Tag that the application uses to determine which log entry to process.
+# Tag for torrent traffic in Xray logs
+# Тег торрент-трафика в логах Xray
 TorrentTag: "TORRENT"
 
-# Опциональный. Указывает, какой инструмент использовать для блокировки IP-адресов.
-# Допустимые значения: "iptables" или "nft". По умолчанию используется "iptables".
-# Приложение автоматически выберет доступный файрвол, если указанный недоступен.
-# Optional. Specifies which tool to use for IP address blocking.
-# Available options: "iptables" or "nft". Defaults to "iptables".
-# The application will automatically select an available firewall if the specified one is not available.
+# Firewall mode: iptables or nft
+# Режим файрвола: iptables или nft
 BlockMode: "iptables"
 
-# Опциональный. Указывает IP-адреса, которые не будут заблокированы.
-# Optional. Specifies the IP addresses that will not be blocked.
+# IPs that should never be blocked
+# IP-адреса, которые никогда не блокировать
 BypassIPS:
   - "127.0.0.1"
   - "::1"
 
-# Опциональный. Регулярное выражение для обработки имени пользователя для вебхуков.
-# Это regex применяется к имени пользователя, извлеченному из поля "email: ".
-# Regex должен иметь ОДНУ группу захвата () для извлечения нужной части.
-# Примеры:
-#   - Отбросить ID юзера в Mazrban: "^(\\d+)\\.(.+)$" -> "12345.username" становится "username"
-#   - Убрать префикс: "^prefix_(.+)" -> "prefix_username" становится "username"  
-#   - Извлечь Telegram ID: "_tgid-(\\d+)" -> "user_tgid-12345" становится "12345"
-#   - Оставить полное: "^(.+)$" (по умолчанию) -> оставляет полное имя без изменений
-# Optional. Regular expression to process username extracted from log entry.
-# This regex is applied to the username extracted from "email: " field.
-# The regex should have ONE capturing group () to extract the desired part.
-# Examples:
-#   - Remove user ID in Mazrban: "^(\\d+)\\.(.+)$" -> "12345.username" becomes "username"
-#   - Remove prefix: "^prefix_(.+)" -> "prefix_username" becomes "username"  
-#   - Extract Telegram ID: "_tgid-(\\d+)" -> "user_tgid-12345" becomes "12345"
-#   - Keep full: "^(.+)$" (default) -> keeps full username unchanged (by default)
+# ============================================================================
+# Username Processing / Обработка имени пользователя
+# ============================================================================
+
+# Regex to extract/transform username from logs
+# Регулярное выражение для обработки username из логов
+#
+# Examples / Примеры:
+#   "^(\\d+)\\.(.+)$"  - Marzban: "12345.username" → "username"
+#   "^prefix_(.+)"    - Remove prefix / убрать префикс
+#   "_tgid-(\\d+)"    - Telegram ID
+#   "^(.+)$"          - Keep as-is / оставить как есть (default)
 UsernameRegex: "^(.+)$"
 
-# Опционально. Отправлять ли уведомления через вебхук
-# Optional. Whether to send webhook notifications
+# ============================================================================
+# Webhook Settings / Настройки Webhook
+# ============================================================================
+
+# Send webhook notifications on block/unblock
+# Отправлять webhook-уведомления при блокировке/разблокировке
 SendWebhook: false
 
-# Опционально. URL для отправки вебхуков
-# Optional. URL for sending webhooks
-WebhookURL: "https://your-webhook-url.com/endpoint"
+# Wait for webhook response BEFORE blocking
+# Ждать ответа от webhook ПЕРЕД блокировкой
+#
+# true  - send request and wait for decision (ban/ignore/warn)
+#       - отправить запрос и ждать решение
+# false - block immediately, webhook for notification only
+#       - блокировать сразу, webhook только для уведомления
+WaitForWebhook: false
 
-# Опционально. Шаблон JSON для вебхука
-# Optional. JSON template for webhook
-# Available variables: %s - username, %s - ip, %s - server, %s - action (block/unblock), %d - block duration (minutes), %s - timestamp
+# Response timeout in seconds (if timeout, falls back to block)
+# Таймаут ответа в секундах (при таймауте — блокировка)
+WebhookTimeout: 5
+
+# Webhook URL
+WebhookURL: "https://your-api.com/webhook"
+
+# JSON template for webhook request
+# Шаблон JSON для webhook-запроса
+# Params: username, ip, server, action, duration, timestamp
 WebhookTemplate: '{"username":"%s","ip":"%s","server":"%s","action":"%s","duration":%d,"timestamp":"%s"}'
 
-# Опционально. Путь к директории для хранения файла с заблокированными IP-адресами.
-# Optional. Path to the directory for storing the blocked IP addresses file.
+# Webhook headers (for auth)
+# Заголовки webhook (для авторизации)
+WebhookHeaders:
+  Authorization: "Bearer your-token"
+  Content-Type: "application/json"
+
+# ============================================================================
+# Storage / Хранение данных
+# ============================================================================
+
+# Directory for blocked IPs storage (persistent between restarts)
+# Директория для хранения заблокированных IP
 StorageDir: "/opt/tblocker"
 
-# Опционально. Заголовки, которые будут добавлены к webhook-запросу.
-# Можно использовать для авторизации или кастомной информации.
-# Optional. Headers to include in the webhook request.
-# Can be used for authorization or custom metadata.
-WebhookHeaders:
-  Authorization: "Bearer your-secret-token"
-  X-Custom-Header: "some-value"
+# ============================================================================
+# Environment Variables / Переменные окружения (for 3x-ui integration)
+# ============================================================================
+# These override settings above:
+# Эти переменные переопределяют настройки выше:
+#
+# XUI_TORRENT_WEBHOOK_ENABLE=true
+# XUI_TORRENT_WAIT_WEBHOOK=true
+# XUI_TORRENT_WEBHOOK_URL=https://..
+# XUI_TORRENT_WEBHOOK_TIMEOUT=5
+# XUI_TORRENT_BAN_DURATION=10
+# XUI_TORRENT_LOG_FILE=/var/log/...
+# XUI_TORRENT_BLOCK_MODE=iptables

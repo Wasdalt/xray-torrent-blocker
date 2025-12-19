@@ -3,62 +3,62 @@
 [![en](https://img.shields.io/badge/lang-en-red)](https://github.com/kutovoys/xray-torrent-blocker/blob/main/README.md)
 [![ru](https://img.shields.io/badge/lang-ru-blue)](https://github.com/kutovoys/xray-torrent-blocker/blob/main/README.ru.md)
 
-Xray Torrent Blocker is an application designed to block torrent usage by users of the [Xray-based](https://github.com/XTLS/Xray-core) panels. The application analyzes logs, detects torrent activity, and temporarily blocks the user, sending webhooks to the configured webhook URL.
+Xray Torrent Blocker — это приложение для блокировки использования торрентов пользователями панелей на базе [Xray](https://github.com/XTLS/Xray-core). Приложение анализирует логи, обнаруживает использование торрентов и временно блокирует пользователя, отправляя вебхуки на настроенный URL вебхука.
 
-## Features
+## Возможности
 
-- Monitoring logs of nodes and the panel for torrent usage
-- IP address blocking at the system level with maximum block speed (no abuse reports!)
-- Connection termination via conntrack - instantly break existing torrent connections
-- Sending webhooks to the configured webhook URL
-- Configurable through a configuration file
-- Supports various firewalls for blocking (iptables, nftables)
-- Configurable block duration
-- Supports temporary blocking with automatic unblocking
-- Install with apt or yum package managers
-- Persistent block state between application restarts
-- Automatic block restoration after system reboot
-- Automatic cleanup of expired blocks
+- Мониторинг логов узлов и панели на предмет использования торрентов
+- Блокировка IP-адресов на системном уровне с максимальной скоростью блокировки (Абузы не придут!)
+- Прерывание соединений через conntrack - мгновенный разрыв существующих торрент-соединений
+- Отправка вебхуков на настроенный URL вебхука
+- Настройка через конфигурационный файл
+- Поддержка различных файрволов для блокировки (iptables, nftables)
+- Настраиваемая продолжительность блокировки
+- Поддержка временной блокировки с автоматической разблокировкой
+- Установка с помощью пакетных менеджеров apt или yum
+- Сохранение состояния блокировки между перезапусками приложения
+- Автоматическое восстановление блокировки после перезагрузки системы
+- Автоматическая очистка истекших блокировок
 
-## Requirements
+## Требования
 
-- Firewall (iptables or nftables)
-- Xray log file with enabled logging
+- Файрвол (iptables или nftables)
+- Файл логов Xray с включенным логированием
 
-## Installation
+## Установка
 
-### Quick Install Script
+### Скрипт быстрой установки
 
-The easiest way to install Xray Torrent Blocker is using the installation script:
+Самый простой способ установить Xray Torrent Blocker — использовать скрипт установки:
 
 ```bash
 bash <(curl -fsSL git.new/install)
 ```
 
-This script will automatically:
+Этот скрипт автоматически:
 
-- Detect your system architecture
-- Download the latest release
-- Install the binary to `/opt/tblocker/`
-- Create a default configuration file
-- Set up the systemd service
-- Start the service
+- Определит архитектуру вашей системы
+- Скачает последний релиз
+- Установит бинарный файл в `/opt/tblocker/`
+- Создаст файл конфигурации по умолчанию
+- Настроит systemd сервис
+- Запустит сервис
 
-During installation, you will be prompted to enter the path to your log file and select your preferred firewall (iptables, or nftables). Other configuration parameters can be adjusted manually by editing `/opt/tblocker/config.yaml` if needed.
+Во время установки вам будет предложено ввести путь к файлу логов и выбрать предпочитаемый файрвол (iptables или nftables). Другие параметры конфигурации можно настроить вручную, отредактировав `/opt/tblocker/config.yaml` при необходимости.
 
-### From Package Repository
+### Из репозитория пакетов
 
-After installation from the repository, a default configuration will be created at `/opt/tblocker/config.yaml`.
+После установки из репозитория будет создана конфигурация по умолчанию в `/opt/tblocker/config.yaml`.
 
-For basic operation, you only need to change `LogFile` to point to your xray logs path.
+Для базовой работы вам нужно изменить только `LogFile`, указав путь к логам xray.
 
-A systemd service `tblocker.service` will also be created for automatic startup at system boot. Automatic startup will be enabled. You just need to start the service after editing the config:
+Также будет создан systemd сервис `tblocker.service` для автоматического запуска при загрузке системы. Автозапуск будет включен. Вам нужно только запустить сервис после редактирования конфигурации:
 
 ```bash
 systemctl start tblocker
 ```
 
-#### Debian/Ubuntu Based Systems
+#### Системы на основе Debian/Ubuntu
 
 ```bash
 apt update && apt install -y curl gnupg
@@ -68,7 +68,7 @@ apt update
 apt install tblocker
 ```
 
-#### RPM Based Systems
+#### Системы на основе RPM
 
 ```bash
 echo """
@@ -83,69 +83,69 @@ yum update
 yum install tblocker
 ```
 
-### From Releases Binary
+### Из бинарного файла релизов
 
-1. Install required dependencies:
+1. Установите необходимые зависимости:
    ```bash
-   # For Debian/Ubuntu
+   # Для Debian/Ubuntu
    sudo apt install conntrack
-   # For CentOS/RHEL
+   # Для CentOS/RHEL
    sudo yum install conntrack-tools
    ```
-2. Download the latest release for your architecture from [GitHub Releases](https://github.com/kutovoys/xray-torrent-blocker/releases)
-3. Extract the binary and make it executable:
+2. Скачайте последний релиз для вашей архитектуры с [GitHub Releases](https://github.com/kutovoys/xray-torrent-blocker/releases)
+3. Извлеките бинарный файл и сделайте его исполняемым:
    ```bash
    chmod +x tblocker
    ```
-4. Move to system directory:
+4. Переместите в системную директорию:
    ```bash
    sudo mv tblocker /opt/tblocker/
    ```
-5. Create config file `/opt/tblocker/config.yaml` with your settings
-6. Copy [systemd service file](tblocker.service) to `/etc/systemd/system/tblocker.service` and start the service
+5. Создайте файл конфигурации `/opt/tblocker/config.yaml` с вашими настройками
+6. Скопируйте [файл systemd сервиса](tblocker.service) в `/etc/systemd/system/tblocker.service` и запустите сервис
    ```bash
    sudo systemctl daemon-reload
    sudo systemctl enable tblocker
    sudo systemctl start tblocker
    ```
 
-## Configuration
+## Конфигурация
 
-### Default Configuration
+### Конфигурация по умолчанию
 
-After installation, the application uses default configuration. You can customize it by editing `/opt/tblocker/config.yaml`:
+После установки приложение использует конфигурацию по умолчанию. Вы можете настроить её, отредактировав `/opt/tblocker/config.yaml`:
 
 ```yaml
-# Log file to monitor
+# Файл логов для мониторинга
 LogFile: "/var/log/remnanode/access.log"
 
-# Block duration in minutes
+# Продолжительность блокировки в минутах
 BlockDuration: 10
 
-# Tag used to identify torrent traffic in logs
+# Тег, используемый для идентификации торрент-трафика в логах
 TorrentTag: "TORRENT"
 
-# Firewall to use for blocking (iptables, nft)
+# Файрвол для блокировки (iptables, nft)
 BlockMode: "iptables"
 ```
 
-### Advanced Configuration
+### Расширенная конфигурация
 
-For advanced usage, you can configure additional features:
+Для продвинутого использования вы можете настроить дополнительные функции:
 
 ```yaml
-# IP addresses to bypass blocking
+# IP-адреса для обхода блокировки
 BypassIPS:
   - "127.0.0.1"
   - "::1"
 
-# Storage directory for block data
+# Директория для хранения данных о блокировке
 StorageDir: "/opt/tblocker"
 
-# Username processing regex for webhooks
+# Регулярное выражение для обработки имени пользователя в вебхуках
 UsernameRegex: "^(.+)$"
 
-# Webhook configuration
+# Конфигурация вебхука
 SendWebhook: false
 WebhookURL: "https://your-webhook-url.com/endpoint"
 WebhookTemplate: '{"username":"%s","ip":"%s","server":"%s","action":"%s","duration":%d,"timestamp":"%s"}'
@@ -154,11 +154,11 @@ WebhookHeaders:
   Content-Type: "application/json"
 ```
 
-## Panels Configuration
+## Конфигурация панелей
 
-### For all panels
+### Для всех панелей
 
-1. Configure bittorrent traffic tagging. Section `routing`. Add the rule:
+1. Настройте тегирование bittorrent трафика. Раздел `routing`. Добавьте правило:
 
    ```json
    {
@@ -168,9 +168,9 @@ WebhookHeaders:
    }
    ```
 
-   Here, `TORRENT` is the tag that the application will use to filter logs.
+   Здесь `TORRENT` — это тег, который приложение будет использовать для фильтрации логов.
 
-2. Configure bittorrent traffic blocking. Section `outbounds`. Send all traffic to blackhole:
+2. Настройте блокировку bittorrent трафика. Раздел `outbounds`. Отправьте весь трафик в blackhole:
 
    ```json
    {
@@ -181,20 +181,20 @@ WebhookHeaders:
 
 ### Remnawave
 
-1. Create the log directory:
+1. Создайте директорию для логов:
 
    ```bash
    mkdir -p /var/log/remnanode
    ```
 
-2. Add volume to remnanode's `docker-compose.yml`:
+2. Добавьте volume в `docker-compose.yml` remnanode:
 
    ```yaml
    volumes:
      - "/var/log/remnanode:/var/log/remnanode"
    ```
 
-3. Setup logging in xray config:
+3. Настройте логирование в конфигурации xray:
 
    ```json
    "log": {
@@ -204,24 +204,24 @@ WebhookHeaders:
    }
    ```
 
-4. Restart the remnanode.
+4. Перезапустите remnanode.
 
 ### Marzban
 
-1. Create the log directory:
+1. Создайте директорию для логов:
 
    ```bash
    mkdir -p /var/lib/marzban-node
    ```
 
-2. Add volume to marzban-node's `docker-compose.yml`:
+2. Добавьте volume в `docker-compose.yml` marzban-node:
 
    ```yaml
    volumes:
      - /var/lib/marzban-node:/var/lib/marzban-node
    ```
 
-3. Setup logging in xray config:
+3. Настройте логирование в конфигурации xray:
 
    ```json
    "log": {
@@ -231,29 +231,29 @@ WebhookHeaders:
    }
    ```
 
-4. Set UsernameRegex value in config.yaml:
+4. Установите значение UsernameRegex в config.yaml:
 
    ```yaml
    UsernameRegex: "^\\d+\\.(.+)$"
    ```
 
-5. Restart the marzban-node.
+5. Перезапустите marzban-node.
 
-### Other Panels
+### Другие панели
 
-For other Xray-based panels, ensure that:
+Для других панелей на основе Xray убедитесь, что:
 
-1. Log files are accessible on the host system
-2. Log format includes necessary information (IP, user identification)
-3. Bittorrent traffic is properly tagged in routing rules
+1. Файлы логов доступны на хост-системе
+2. Формат логов включает необходимую информацию (IP, идентификацию пользователя)
+3. Bittorrent трафик правильно помечен в правилах маршрутизации
 
-## Tips
+## Советы
 
-### Working Behind a TCP Proxy
+### Работа за TCP прокси
 
-⚠️ **Important**: If you place Nginx/HAProxy/another TCP proxy in front of Xray, make sure the real client IP reaches Xray via the PROXY protocol; otherwise, you may end up blocking 127.0.0.1 or your server IP instead of the actual offender.
+⚠️ **Важно**: Если вы размещаете Nginx/HAProxy/другой TCP прокси перед Xray, убедитесь, что реальный IP клиента передается в Xray через протокол PROXY; иначе вы можете заблокировать 127.0.0.1 или IP вашего сервера вместо реального нарушителя.
 
-**Xray Configuration Example:**
+**Пример конфигурации Xray:**
 
 ```json
 {
@@ -265,7 +265,7 @@ For other Xray-based panels, ensure that:
         "network": "tcp",
         "security": "reality",
         "sockopt": {
-          "acceptProxyProtocol": true // accept PROXY v1/v2 from the proxy
+          "acceptProxyProtocol": true // принимать PROXY v1/v2 от прокси
         }
       }
     }
@@ -273,19 +273,19 @@ For other Xray-based panels, ensure that:
 }
 ```
 
-**Nginx Configuration Example:**
+**Пример конфигурации Nginx:**
 
 ```nginx
 stream {
     server {
         listen 443;
-        proxy_pass 127.0.0.1:444;  # your Xray inbound
-        proxy_protocol on;         # send PROXY protocol to backend
+        proxy_pass 127.0.0.1:444;  # ваш inbound Xray
+        proxy_protocol on;         # отправлять PROXY protocol в backend
     }
 }
 ```
 
-**HAProxy Configuration Example:**
+**Пример конфигурации HAProxy:**
 
 ```
 backend xray_backend
@@ -293,19 +293,19 @@ backend xray_backend
     server xray1 127.0.0.1:444 send-proxy-v2
 ```
 
-This ensures that Xray receives the real client IP address in its access logs, allowing tblocker to block the correct IP addresses.
+Это гарантирует, что Xray получает реальный IP-адрес клиента в своих логах доступа, позволяя tblocker блокировать правильные IP-адреса.
 
-### Reading logs
+### Чтение логов
 
-To read `tblocker` logs, you can use the following command:
+Для чтения логов `tblocker` вы можете использовать следующую команду:
 
 ```bash
 journalctl -u tblocker -f --no-pager
 ```
 
-### Logrotate Configuration
+### Конфигурация logrotate
 
-To prevent log files from consuming too much disk space, configure logrotate:
+Чтобы предотвратить потребление слишком большого места на диске файлами логов, настройте logrotate:
 
 ```bash
 sudo bash -c 'cat > /etc/logrotate.d/remnanode <<EOF
@@ -320,28 +320,28 @@ sudo bash -c 'cat > /etc/logrotate.d/remnanode <<EOF
 EOF'
 ```
 
-### Working with Webhooks
+### Работа с вебхуками
 
-Webhooks allow you to integrate tblocker with external systems:
+Вебхуки позволяют интегрировать tblocker с внешними системами:
 
-- **Panel**: Enable/Disable user in Panel for blocking on all nodes
-- **Telegram**: Send notifications to Telegram groups. For admin and user notifications.
-- **Custom APIs**: Connect to your own monitoring systems
+- **Панель**: Включение/отключение пользователя в панели для блокировки на всех узлах
+- **Telegram**: Отправка уведомлений в группы Telegram. Для уведомлений администраторов и пользователей.
+- **Пользовательские API**: Подключение к вашим собственным системам мониторинга
 
-For receiving webhooks, you can use [n8n](https://n8n.io/) or any other webhook service.
+Для получения вебхуков вы можете использовать [n8n](https://n8n.io/) или любой другой сервис вебхуков.
 
-## Contributing
+## Участие в разработке
 
-We welcome contributions from the community! If you have ideas for improvements or have found a bug, please:
+Мы приветствуем вклад сообщества! Если у вас есть идеи по улучшению или вы нашли ошибку, пожалуйста:
 
-1. Create an issue on GitHub
-2. Fork the repository
-3. Create a feature branch
-4. Make your changes
-5. Submit a pull request
+1. Создайте issue на GitHub
+2. Сделайте форк репозитория
+3. Создайте ветку для функции
+4. Внесите изменения
+5. Отправьте pull request
 
-For major changes, please open an issue first to discuss what you would like to change.
+Для крупных изменений сначала откройте issue для обсуждения того, что вы хотели бы изменить.
 
-## VPN Recommendation
+## Рекомендация VPN
 
-For secure and reliable internet access, we recommend [BlancVPN](https://getblancvpn.com/?ref=tblocker). Use promo code `TRYBLANCVPN` for 15% off your subscription.
+Для безопасного и надежного доступа в интернет мы рекомендуем [BlancVPN](https://getblancvpn.com/?ref=tblocker). Используйте промокод `TRYBLANCVPN` для получения 15% скидки на подписку.

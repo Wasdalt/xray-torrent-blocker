@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"fmt"
+	"encoding/json"
 	"log"
 	"net/http"
 	"runtime"
@@ -161,6 +161,23 @@ func handleLogEntry(line string) {
 		return
 	}
 
+	// Если включено ожидание ответа от webhook
+	if config.SendWebhook && config.WaitForWebhook {
+		action := SendWebhookAndWait(usernameStr, ip, "block")
+		switch action {
+		case "ban":
+			log.Printf("[Webhook] Action=ban for user %s, IP: %s", usernameStr, ip)
+		case "ignore":
+			log.Printf("[Webhook] Action=ignore for user %s, IP: %s - skipping block", usernameStr, ip)
+			return
+		case "warn":
+			log.Printf("[Webhook] Action=warn for user %s, IP: %s - skipping block", usernameStr, ip)
+			return
+		default:
+			log.Printf("[Webhook] Unknown action=%s, defaulting to ban", action)
+		}
+	}
+
 	if err := ipStorage.AddBlockedIP(ip, usernameStr, time.Duration(config.BlockDuration)*time.Minute); err != nil {
 		log.Printf("Error saving blocked IP to storage: %v", err)
 	}
@@ -168,7 +185,8 @@ func handleLogEntry(line string) {
 	go BlockIP(ip)
 	log.Printf("User %s with IP: %s blocked for %d minutes\n", usernameStr, ip, config.BlockDuration)
 
-	if config.SendWebhook {
+	// Отправить webhook без ожидания (для уведомления)
+	if config.SendWebhook && !config.WaitForWebhook {
 		go SendWebhook(usernameStr, ip, "block")
 	}
 }
@@ -369,17 +387,44 @@ func SendWebhook(username string, ip string, action string) {
 
 	cleanUsername := processUsernameForWebhook(username)
 
-	payload := fmt.Sprintf(
-		config.WebhookTemplate,
-		cleanUsername,
-		ip,
-		config.Hostname,
-		action,
-		config.BlockDuration,
-		time.Now().Format(time.RFC3339),
-	)
+	var jsonPayload []byte
+	var err error
 
-	req, err := http.NewRequest("POST", config.WebhookURL, strings.NewReader(payload))
+	if action == "unblock" {
+		// Unblock notification
+		payload := UnblockPayload{
+			Event: "ip_unblocked",
+			Client: ClientInfo{
+				Email: cleanUsername,
+			},
+			Server: config.Hostname,
+		}
+		payload.Unblock.IP = ip
+		payload.Unblock.Timestamp = time.Now().Format(time.RFC3339)
+		jsonPayload, err = json.Marshal(payload)
+	} else {
+		// Block notification
+		payload := ViolationPayload{
+			Event: "torrent_detected",
+			Client: ClientInfo{
+				Email: cleanUsername,
+			},
+			Violation: ViolationInfo{
+				IP:        ip,
+				Reason:    "torrent",
+				Timestamp: time.Now().Format(time.RFC3339),
+			},
+			Server: config.Hostname,
+		}
+		jsonPayload, err = json.Marshal(payload)
+	}
+
+	if err != nil {
+		log.Printf("Error marshaling webhook payload: %v", err)
+		return
+	}
+
+	req, err := http.NewRequest("POST", config.WebhookURL, strings.NewReader(string(jsonPayload)))
 	if err != nil {
 		log.Printf("Error creating webhook request: %v", err)
 		return
@@ -414,6 +459,110 @@ func processUsernameForWebhook(rawUsername string) string {
 	}
 
 	return rawUsername
+}
+
+// WebhookResponse represents the expected response from webhook
+type WebhookResponse struct {
+	Action   string `json:"action"`   // "ban", "ignore", "warn"
+	Duration int    `json:"duration"` // optional, seconds
+}
+
+// ViolationPayload - унифицированный формат для обоих блокировщиков
+type ViolationPayload struct {
+	Event     string         `json:"event"`
+	Client    ClientInfo     `json:"client"`
+	Violation ViolationInfo  `json:"violation"`
+	Server    string         `json:"server"`
+}
+
+type ClientInfo struct {
+	Email string `json:"email"`
+}
+
+type ViolationInfo struct {
+	IP        string `json:"ip"`
+	Reason    string `json:"reason"`
+	Timestamp string `json:"timestamp"`
+}
+
+// UnblockPayload - уведомление о разблокировке
+type UnblockPayload struct {
+	Event  string     `json:"event"`
+	Client ClientInfo `json:"client"`
+	Unblock struct {
+		IP        string `json:"ip"`
+		Timestamp string `json:"timestamp"`
+	} `json:"unblock"`
+	Server string `json:"server"`
+}
+
+// SendWebhookAndWait sends webhook and waits for response with action decision
+func SendWebhookAndWait(username string, ip string, action string) string {
+	if !config.SendWebhook || config.WebhookURL == "" {
+		return "ban" // default to ban if webhook not configured
+	}
+
+	cleanUsername := processUsernameForWebhook(username)
+
+	// Unified payload format
+	payload := ViolationPayload{
+		Event: "torrent_detected",
+		Client: ClientInfo{
+			Email: cleanUsername,
+		},
+		Violation: ViolationInfo{
+			IP:        ip,
+			Reason:    "torrent",
+			Timestamp: time.Now().Format(time.RFC3339),
+		},
+		Server: config.Hostname,
+	}
+
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		log.Printf("[Webhook] Error marshaling payload: %v, defaulting to ban", err)
+		return "ban"
+	}
+
+	req, err := http.NewRequest("POST", config.WebhookURL, strings.NewReader(string(jsonPayload)))
+	if err != nil {
+		log.Printf("[Webhook] Error creating request: %v, defaulting to ban", err)
+		return "ban"
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	for key, value := range config.WebhookHeaders {
+		req.Header.Set(key, value)
+	}
+
+	client := &http.Client{
+		Timeout: time.Duration(config.WebhookTimeout) * time.Second,
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("[Webhook] Request failed: %v, defaulting to ban", err)
+		return "ban"
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		log.Printf("[Webhook] Non-OK status: %d, defaulting to ban", resp.StatusCode)
+		return "ban"
+	}
+
+	var webhookResp WebhookResponse
+	if err := json.NewDecoder(resp.Body).Decode(&webhookResp); err != nil {
+		log.Printf("[Webhook] Failed to decode response: %v, defaulting to ban", err)
+		return "ban"
+	}
+
+	if webhookResp.Action == "" {
+		return "ban"
+	}
+
+	log.Printf("[Webhook] Received action=%s for user=%s, ip=%s", webhookResp.Action, cleanUsername, ip)
+	return webhookResp.Action
 }
 
 func updateParseStats(duration time.Duration, valid bool) {
